@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Feynman English · Voice Test HTTPS v1.2</title>
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--text:#17202a;--muted:#69737e;--blue:#2479df;--soft:#eef5ff;--line:#dce3eb;--ok:#157347;--warn:#9a6700;--bad:#b42318}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}
+main{max-width:620px;margin:auto;padding:18px 16px 40px}
+.card{background:var(--card);border-radius:24px;padding:20px;box-shadow:0 5px 22px #0000000b;margin-bottom:14px}
+h1{font-size:1.45rem;margin:0 0 8px} h2{font-size:1.15rem;margin:0 0 8px}
+.muted{color:var(--muted);line-height:1.45}
+.badge{display:inline-block;background:var(--soft);color:#245a91;padding:6px 10px;border-radius:999px;font-size:.78rem;font-weight:800}
+.progress{height:9px;border-radius:99px;background:#e8edf3;overflow:hidden;margin:14px 0}
+.progress>div{height:100%;background:var(--blue);width:0}
+.target{border:2px solid var(--blue);background:#f8fbff;border-radius:22px;padding:28px 16px;text-align:center;margin:15px 0}
+.target .en{font-size:1.55rem;font-weight:850;line-height:1.3}
+.target .pt{margin-top:10px;color:var(--muted)}
+button{width:100%;border:0;border-radius:15px;padding:14px 12px;font-size:1rem;font-weight:800;margin-top:9px;cursor:pointer}
+.primary{background:var(--blue);color:#fff}
+.secondary{background:#edf1f6;color:#25313c}
+button:disabled{opacity:.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.status{border-radius:16px;padding:13px 14px;margin-top:12px;line-height:1.45}
+.status.ok{background:#eaf7ef;color:var(--ok)} .status.close{background:#fff6dd;color:var(--warn)} .status.bad{background:#fff0ee;color:var(--bad)}
+.transcript{font-weight:800;word-break:break-word}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat{background:#f3f6f9;border-radius:15px;padding:12px 8px;text-align:center}
+.stat strong{font-size:1.3rem;display:block}
+.small{font-size:.82rem}
+.hidden{display:none}
+.note{font-size:.88rem;background:#f7f8fa;border:1px solid var(--line);border-radius:14px;padding:12px;line-height:1.45}
+@media(max-width:430px){.row{grid-template-columns:1fr}.target .en{font-size:1.35rem}}
+</style>
+</head>
+<body>
+<main>
+<section class="card">
+  <span class="badge">TESTE TÉCNICO v1.2 · HTTPS · 30 FRASES</span>
+  <h1 style="margin-top:10px">Reconhecimento de voz</h1>
+  <p class="muted">Este teste mede o reconhecedor, não sua memória. Leia a frase em inglês em voz alta. O app compara o que o navegador entendeu com a frase esperada.</p>
+  <div id="support" class="note"></div>
+  <button class="secondary" id="permBtn" onclick="checkMicrophonePermission()">TESTAR PERMISSÃO DO MICROFONE</button>
+</section>
+
+<section class="card" id="testCard">
+  <div class="small muted" id="counter">Frase 1/30</div>
+  <div class="progress"><div id="bar"></div></div>
+  <span class="badge" id="mode"></span>
+  <div class="target">
+    <div class="en" id="targetEn"></div>
+    <div class="pt" id="targetPt"></div>
+  </div>
+  <div class="row">
+    <button class="secondary" id="listenBtn" onclick="listenTarget()">🔊 OUVIR MODELO</button>
+    <button class="primary" id="speakBtn" onclick="startRecognition()">🎤 FALAR</button>
+  </div>
+  <div id="result"></div>
+  <button class="primary hidden" id="nextBtn" onclick="nextPhrase()">PRÓXIMA FRASE</button>
+</section>
+
+<section class="card">
+  <h2>Resultado do teste</h2>
+  <div class="stats">
+    <div class="stat"><strong id="exactN">0</strong><span class="small">exatos</span></div>
+    <div class="stat"><strong id="closeN">0</strong><span class="small">quase</span></div>
+    <div class="stat"><strong id="missN">0</strong><span class="small">falhas</span></div>
+  </div>
+  <p class="muted" id="rate">Taxa útil: 0%</p>
+  <button class="secondary" onclick="resetTest()">REINICIAR TESTE</button>
+</section>
+
+<section class="card">
+  <h2>Como interpretar</h2>
+  <p class="muted small"><strong>Exato:</strong> frase reconhecida corretamente após normalização. <strong>Quase:</strong> pequena diferença de reconhecimento. <strong>Falha:</strong> diferença maior na frase reconhecida. Erros de permissão, rede ou microfone não entram na taxa. Para decidir se vale integrar ao app, observe principalmente a <strong>taxa útil = exatos + quase</strong>.</p>
+</section>
+</main>
+
+<script>
+const PHRASES=[{"verb": "work", "mode": "Presente", "en": "I work here.", "pt": "Eu trabalho aqui."}, {"verb": "work", "mode": "Negativa", "en": "I don't work here.", "pt": "Eu não trabalho aqui."}, {"verb": "work", "mode": "Passado", "en": "I worked here.", "pt": "Eu trabalhei aqui."}, {"verb": "work", "mode": "Passado negativo", "en": "I didn't work here.", "pt": "Eu não trabalhei aqui."}, {"verb": "work", "mode": "Futuro", "en": "I will work here.", "pt": "Eu vou trabalhar aqui."}, {"verb": "call", "mode": "Presente", "en": "I call my wife.", "pt": "Eu ligo para minha esposa."}, {"verb": "call", "mode": "Negativa", "en": "I don't call my wife.", "pt": "Eu não ligo para minha esposa."}, {"verb": "call", "mode": "Passado", "en": "I called my wife.", "pt": "Eu liguei para minha esposa."}, {"verb": "call", "mode": "Passado negativo", "en": "I didn't call my wife.", "pt": "Eu não liguei para minha esposa."}, {"verb": "call", "mode": "Futuro", "en": "I will call my wife.", "pt": "Eu vou ligar para minha esposa."}, {"verb": "go", "mode": "Presente", "en": "I go to work.", "pt": "Eu vou ao trabalho."}, {"verb": "go", "mode": "Negativa", "en": "I don't go to work.", "pt": "Eu não vou ao trabalho."}, {"verb": "go", "mode": "Passado", "en": "I went to work.", "pt": "Eu fui ao trabalho."}, {"verb": "go", "mode": "Passado negativo", "en": "I didn't go to work.", "pt": "Eu não fui ao trabalho."}, {"verb": "go", "mode": "Futuro", "en": "I will go to work.", "pt": "Eu irei ao trabalho."}, {"verb": "eat", "mode": "Presente", "en": "I eat eggs.", "pt": "Eu como ovos."}, {"verb": "eat", "mode": "Negativa", "en": "I don't eat eggs.", "pt": "Eu não como ovos."}, {"verb": "eat", "mode": "Passado", "en": "I ate eggs.", "pt": "Eu comi ovos."}, {"verb": "eat", "mode": "Passado negativo", "en": "I didn't eat eggs.", "pt": "Eu não comi ovos."}, {"verb": "eat", "mode": "Futuro", "en": "I will eat eggs.", "pt": "Eu vou comer ovos."}, {"verb": "have", "mode": "Presente", "en": "I have time.", "pt": "Eu tenho tempo."}, {"verb": "have", "mode": "Negativa", "en": "I don't have time.", "pt": "Eu não tenho tempo."}, {"verb": "have", "mode": "Passado", "en": "I had time.", "pt": "Eu tive tempo."}, {"verb": "have", "mode": "Passado negativo", "en": "I didn't have time.", "pt": "Eu não tive tempo."}, {"verb": "have", "mode": "Futuro", "en": "I will have time.", "pt": "Eu vou ter tempo."}, {"verb": "write", "mode": "Presente", "en": "I write my name.", "pt": "Eu escrevo meu nome."}, {"verb": "write", "mode": "Negativa", "en": "I don't write my name.", "pt": "Eu não escrevo meu nome."}, {"verb": "write", "mode": "Passado", "en": "I wrote my name.", "pt": "Eu escrevi meu nome."}, {"verb": "write", "mode": "Passado negativo", "en": "I didn't write my name.", "pt": "Eu não escrevi meu nome."}, {"verb": "write", "mode": "Futuro", "en": "I will write my name.", "pt": "Eu vou escrever meu nome."}];
+let index=0;
+let results={exact:0,close:0,miss:0,items:[]};
+let recognition=null;
+let recognizing=false;
+
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+
+
+async function checkMicrophonePermission(){
+  const el=document.getElementById('support');
+  const proto=location.protocol||'desconhecido:';
+  const secure=window.isSecureContext===true;
+  const mediaOK=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+
+  let html=`<strong>Diagnóstico do ambiente</strong><br>
+    Protocolo: <code>${escapeHtml(proto)}</code><br>
+    Contexto seguro: <strong>${secure?'sim':'não'}</strong><br>
+    API de microfone disponível: <strong>${mediaOK?'sim':'não'}</strong><br>`;
+
+  if(proto!=='https:' && location.hostname!=='localhost'){
+    html+=`<br><strong style="color:#b42318">× Este teste deve ser aberto por HTTPS.</strong><br>
+    Publique esta pasta no GitHub Pages e abra o endereço <code>https://...</code>.`;
+  } else if(secure){
+    html+=`<br><strong style="color:#157347">✓ Página aberta em contexto seguro.</strong>`;
+  }
+
+  if(!mediaOK){
+    el.innerHTML=html+`<br><br><strong>O navegador não disponibilizou acesso direto ao microfone neste contexto.</strong>`;
+    return;
+  }
+
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());
+    el.innerHTML=html+`<br><br><strong style="color:#157347">✓ Microfone autorizado pelo navegador.</strong><br>Agora toque em FALAR.`;
+  }catch(err){
+    let msg=err&&err.name?err.name:'erro desconhecido';
+    el.innerHTML=html+`<br><br><strong style="color:#b42318">× O microfone não foi autorizado.</strong><br>${escapeHtml(msg)}<br><br>
+    No Android, confira: Configurações → Aplicativos → Chrome → Permissões → Microfone, e depois as permissões do site no Chrome.`;
+  }
+}
+
+function init(){
+  const el=document.getElementById('support');
+  const proto=location.protocol||'desconhecido:';
+  const secure=window.isSecureContext===true;
+  if(!SR){
+    el.innerHTML='<strong>Reconhecimento não disponível neste navegador.</strong><br>Teste preferencialmente no Chrome do Android.';
+    document.getElementById('speakBtn').disabled=true;
+  }else{
+    el.innerHTML=`<strong>Reconhecimento disponível.</strong><br>
+      Protocolo atual: <code>${escapeHtml(proto)}</code> · contexto seguro: <strong>${secure?'sim':'não'}</strong>.<br>
+      Primeiro toque em <strong>TESTAR PERMISSÃO DO MICROFONE</strong>.`;
+  }
+  render();
+}
+function normalize(s){
+  return (s||'').toLowerCase()
+    .replace(/[’‘]/g,"'")
+    .replace(/\bi'm\b/g,'i am')
+    .replace(/\bdon't\b/g,'do not')
+    .replace(/\bdidn't\b/g,'did not')
+    .replace(/\bwon't\b/g,'will not')
+    .replace(/[^a-z0-9\s']/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function words(s){return normalize(s).split(' ').filter(Boolean)}
+function levenshtein(a,b){
+  const m=a.length,n=b.length,dp=Array.from({length:m+1},()=>Array(n+1).fill(0));
+  for(let i=0;i<=m;i++)dp[i][0]=i;
+  for(let j=0;j<=n;j++)dp[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)
+    dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return dp[m][n];
+}
+function score(expected,heard){
+  const e=words(expected),h=words(heard);
+  const dist=levenshtein(e,h);
+  const wer=dist/Math.max(1,e.length);
+  if(wer===0)return {kind:'exact',wer};
+  if(wer<=0.25 || (dist===1 && e.length>=3))return {kind:'close',wer};
+  return {kind:'miss',wer};
+}
+function render(){
+  const p=PHRASES[index];
+  document.getElementById('counter').textContent=`Frase ${index+1}/${PHRASES.length} · ${p.verb}`;
+  document.getElementById('bar').style.width=`${((index+1)/PHRASES.length)*100}%`;
+  document.getElementById('mode').textContent=p.mode;
+  document.getElementById('targetEn').textContent=p.en;
+  document.getElementById('targetPt').textContent=p.pt;
+  document.getElementById('result').innerHTML='';
+  document.getElementById('nextBtn').classList.add('hidden');
+  document.getElementById('speakBtn').disabled=!SR;
+  updateStats();
+}
+function listenTarget(){
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(PHRASES[index].en);
+  u.lang='en-US';u.rate=.8;
+  speechSynthesis.speak(u);
+}
+function startRecognition(){
+  if(!SR||recognizing)return;
+  const expected=PHRASES[index].en;
+  recognition=new SR();
+  recognition.lang='en-US';
+  recognition.interimResults=false;
+  recognition.continuous=false;
+  recognition.maxAlternatives=5;
+  recognizing=true;
+  const btn=document.getElementById('speakBtn');
+  btn.disabled=true;btn.textContent='🎤 OUVINDO...';
+
+  recognition.onresult=(ev)=>{
+    const alternatives=[];
+    const r=ev.results[0];
+    for(let i=0;i<r.length;i++)alternatives.push({text:r[i].transcript,confidence:r[i].confidence||0});
+    let best=null;
+    for(const alt of alternatives){
+      const sc=score(expected,alt.text);
+      if(!best || sc.wer<best.wer)best={...alt,...sc};
+    }
+    finishRecognition(best);
+  };
+  recognition.onerror=(ev)=>{
+    recognizing=false;
+    btn.disabled=false;btn.textContent='🎤 FALAR';
+    const friendly={
+      'not-allowed':'Permissão do microfone negada.',
+      'audio-capture':'Microfone não encontrado.',
+      'network':'Erro de rede no serviço de reconhecimento.',
+      'no-speech':'Nenhuma fala detectada.'
+    }[ev.error]||`Erro de reconhecimento: ${ev.error}`;
+    showSystemError(friendly);
+  };
+  recognition.onend=()=>{
+    recognizing=false;
+    btn.disabled=false;btn.textContent='🎤 FALAR';
+  };
+  try{recognition.start()}catch(e){recognizing=false;btn.disabled=false;btn.textContent='🎤 FALAR';showSystemError(e.message)}
+}
+function finishRecognition(best){
+  const expected=PHRASES[index].en;
+  const labels={exact:'✓ EXATO',close:'~ QUASE',miss:'× FALHA'};
+  const classes={exact:'ok',close:'close',miss:'bad'};
+  results[best.kind]++;
+  results.items.push({expected,heard:best.text,kind:best.kind,wer:best.wer,confidence:best.confidence});
+  document.getElementById('result').innerHTML=`<div class="status ${classes[best.kind]}"><strong>${labels[best.kind]}</strong><br>Entendi: <span class="transcript">${escapeHtml(best.text)}</span>${best.confidence?`<br><span class="small">Confiança informada pelo navegador: ${Math.round(best.confidence*100)}%</span>`:''}</div>`;
+  document.getElementById('nextBtn').classList.remove('hidden');
+  document.getElementById('speakBtn').disabled=true;
+  updateStats();
+}
+function showSystemError(msg){
+  results.items.push({expected:PHRASES[index].en,heard:'',kind:'system',error:msg});
+  document.getElementById('result').innerHTML=`<div class="status bad"><strong>× ERRO DO SISTEMA / PERMISSÃO</strong><br>${escapeHtml(msg)}<br><br><span class="small">Este erro não entra na taxa de reconhecimento.</span></div>`;
+  document.getElementById('nextBtn').classList.add('hidden');
+  document.getElementById('speakBtn').disabled=false;
+  updateStats();
+}
+function nextPhrase(){
+  if(index<PHRASES.length-1){index++;render();}
+  else showFinal();
+}
+function showFinal(){
+  const total=results.exact+results.close+results.miss;
+  const useful=total?Math.round(((results.exact+results.close)/total)*100):0;
+  document.getElementById('testCard').innerHTML=`<span class="badge">TESTE CONCLUÍDO</span><h2 style="margin-top:12px">Taxa útil: ${useful}%</h2><p class="muted">Exatos: ${results.exact} · Quase: ${results.close} · Falhas: ${results.miss}</p><p class="muted">${useful>=90?'Resultado muito favorável para integração.':useful>=80?'Resultado promissor; vale testar mais antes da integração.':'Precisamos investigar as falhas antes de integrar.'}</p>`;
+}
+function updateStats(){
+  const total=results.exact+results.close+results.miss;
+  const useful=total?Math.round(((results.exact+results.close)/total)*100):0;
+  document.getElementById('exactN').textContent=results.exact;
+  document.getElementById('closeN').textContent=results.close;
+  document.getElementById('missN').textContent=results.miss;
+  document.getElementById('rate').textContent=`Taxa útil: ${useful}% (${results.exact+results.close}/${total||0})`;
+}
+function resetTest(){index=0;results={exact:0,close:0,miss:0,items:[]};location.reload()}
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+init();
+</script>
+</body>
+</html>
